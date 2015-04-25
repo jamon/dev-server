@@ -47,22 +47,21 @@ var getDirs = function(path, callback) {
 };
 
 
-var getModules = function(rootDirectory, moduleFileName, callback) {
+/*var getModules = function(rootDirectory, moduleFileName, callback) {
     console.log("root directory", rootDirectory);
-    getDirs(rootDirectory, function(err, dirs) {
-        if(err) return callback(err);
-        console.log("dirs", dirs);
-        async.filter(dirs, function(path, mapCallback) {
-            // @TODO don't repeat filename
-            var moduleFile = path + "/" + moduleFileName;
-            console.log("checking", moduleFile);
-            fs.exists(moduleFile, function(exists) {
-                console.log("   ", moduleFile, exists);
-                mapCallback(exists);
-            });
-        }, function(result) {
-            callback(null, result);
+};*/
+
+var getModules = function(dirs, moduleFileName, callback) {
+    async.filter(dirs, function(path, mapCallback) {
+        // @TODO don't repeat filename
+        var moduleFile = path + "/" + moduleFileName;
+        console.log("checking", moduleFile);
+        fs.exists(moduleFile, function(exists) {
+            console.log("   ", moduleFile, exists);
+            mapCallback(exists);
         });
+    }, function(result) {
+        callback(null, result);
     });
 };
 
@@ -72,30 +71,39 @@ var getModules = function(rootDirectory, moduleFileName, callback) {
 module.exports = function(conf) {
     conf.static = conf.static || "/static";
     conf.api = conf.api || "/api";
-    conf.workspace = conf.workspace || "../";
     conf.port = conf.port || process.env.port || 8080;
     conf.address = conf.address || process.env.address || "127.0.0.1";
     conf.moduleFileName = "dev-server-module.js";
+    var gmCallback = function(dirs) {
+        getModules(dirs, conf.moduleFileName, function(err, moduleList) {
+            console.log("moduleList", moduleList);
+            moduleList.map(function(modulePath) {
+                var moduleFile = modulePath + "/" + conf.moduleFileName;
+                console.log("loading module", moduleFile);
+                // try {
+                    var module = require(moduleFile);
+                    module.load(app, conf);
+                // } catch(e) {
+                //     console.error("Unable to load ", moduleFile, e);
+                //     throw e;
+                // }
+            });
+            var server = app.listen(conf.port, conf.address, function () {
+              var host = server.address().address;
+              var port = server.address().port;
 
-    getModules(conf.workspace, conf.moduleFileName, function(err, moduleList) {
-        console.log("moduleList", moduleList);
-        moduleList.map(function(modulePath) {
-            var moduleFile = modulePath + "/" + conf.moduleFileName;
-            console.log("loading module", moduleFile);
-            // try {
-                var module = require(moduleFile);
-                module.load(app, conf);
-            // } catch(e) {
-            //     console.error("Unable to load ", moduleFile, e);
-            //     throw e;
-            // }
+              console.log('dev-server listening at http://%s:%s', host, port);
+            });
         });
-        var server = app.listen(conf.port, conf.address, function () {
-          var host = server.address().address;
-          var port = server.address().port;
 
-          console.log('dev-server listening at http://%s:%s', host, port);
+    };
+
+    if(Array.isArray(conf.projects)) {
+        gmCallback(conf.projects);
+    } else {
+        getDirs(rootDirectory, function(err, dirs) {
+            if(err) return callback(err);
+            gmCallback(dirs);
         });
-    });
-
+    }
 };
