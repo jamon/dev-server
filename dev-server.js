@@ -101,7 +101,7 @@ module.exports = function(conf) {
     if(Array.isArray(conf.projects)) {
         gmCallback(conf.projects);
     } else {
-        getDirs(rootDirectory, function(err, dirs) {
+        getDirs(conf.workspace, function(err, dirs) {
             if(err) return callback(err);
             gmCallback(dirs);
         });
